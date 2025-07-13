@@ -1,4 +1,4 @@
-from tkinter import *
+from tkinter import all*
 from tkinter.ttk import *
 from tkinter import messagebox, filedialog
 import datetime, random
