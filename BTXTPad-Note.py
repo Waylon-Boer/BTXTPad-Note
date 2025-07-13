@@ -52,10 +52,12 @@ def new_note():
         menubar.add_command(label="Del", command=lambda: note.delete(1.0, END))
         menubar.add_command(label="Export", command=lambda: open(filedialog.asksaveasfilename(defaultextension='.btxt', filetypes=[('All Files', '*.*')]), 'w').write(str(datetime.datetime.now().date())+"\n\n"+note.get(1.0, "end")))
         menubar.add_command(label="Pin", command=lambda: window.attributes("-topmost", not window.attributes("-topmost")))
+        menubar.add_command(label="+", command=lambda: window.attributes("-fullscreen", not window.attributes("-fullscreen")))
         note = Text(window, bd=8, relief=FLAT, undo=True, wrap=WORD, background=random.choice(["#fc5", "#5cf", "#d8d", "#8d8", "#f84", "#bbb"]), foreground="#000", font=("", 11))
         note.grid(row=0, column=0, sticky="nsew")
         notes[title] = note
         refresh()
+        window.bind("<F11>", lambda i: window.attributes("-fullscreen", not window.attributes("-fullscreen")))
         window.mainloop()
     else:
         messagebox.showerror("BTXTPad Note", "The provided name has already been used.")
