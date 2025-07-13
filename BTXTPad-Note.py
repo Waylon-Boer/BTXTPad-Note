@@ -85,8 +85,8 @@ def delete():
     if note_list.curselection() != ():
         ch = messagebox.askyesno("BTXTPad Note", f"Are you sure that you want to delete \"{note_list.get(note_list.curselection())}\"?")
         if ch:
-            notes.pop(note_list.get(note_list.curselection()))
             notes[note_list.get(note_list.curselection())].winfo_toplevel().destroy()
+            notes.pop(note_list.get(note_list.curselection()))
         refresh()
 
 def delete_all():
@@ -104,11 +104,6 @@ def view_toolbar():
     toolbar.grid(row=0, column=0, sticky="nsew")
     toolbar.focus_set()
 
-def refresh():
-    note_list.delete(0, END)
-    for i in dict(reversed(list(notes.items()))):
-        note_list.insert(END, i)
-
 def open_note():
     if note_list.curselection() != ():
         title = note_list.get(note_list.curselection())
@@ -117,9 +112,13 @@ def open_note():
         notes[title] = note
         notes[note_list.get(note_list.curselection())].winfo_toplevel().deiconify()
         refresh()
-     
-def b3_menu(event):
-    menuB3.tk_popup(event.x_root, event.y_root)   
+
+def clipboard():
+    if "Clipboard" not in notes:
+        bar.delete(0, END)
+        bar.insert(INSERT, "Clipboard")
+        new_note()
+        refresh()
 
 def help():
     window = Tk()
@@ -141,7 +140,20 @@ def help():
     mit_license.configure(state=DISABLED)
     help_tabs.add(mit_license, text="License")
     window.mainloop()
-
+ 
+def refresh():
+    note_list.delete(0, END)
+    for i in dict(reversed(list(notes.items()))):
+        note_list.insert(END, i)
+    if "Clipboard" in notes:
+        notes["Clipboard"].configure(state=NORMAL)
+        notes["Clipboard"].delete(1.0, END)
+        notes["Clipboard"].insert(INSERT, notes["Clipboard"].selection_get(selection="CLIPBOARD"))
+        notes["Clipboard"].configure(state=DISABLED)
+     
+def b3_menu(event):
+    menuB3.tk_popup(event.x_root, event.y_root)  
+    
 root = Tk()
 root.title("BTXTPad Note")
 root.rowconfigure(1, weight=1)
@@ -201,7 +213,7 @@ menuB3.add_command(label="Rename", command=rename)
 menuB3.add_command(label="Delete", command=delete)
 menuB3.add_separator()
 menuB3.add_command(label="Delete All", command=delete_all)
-menuB3.add_command(label="Clipboard")
+menuB3.add_command(label="Clipboard", command=clipboard)
 note_list.bind("<Button-3>", b3_menu)
 
 root.bind("<Control-n>", lambda i: new())
