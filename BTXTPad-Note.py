@@ -1,6 +1,6 @@
 from tkinter import *
 from tkinter.ttk import *
-from tkinter import messagebox, filedialog
+from tkinter import messagebox, filedialog, colorchooser
 import datetime, random
 
 def cut(note):
@@ -33,9 +33,9 @@ def move_to_front(note):
     except:
         note.get(1.0, END)
 
-def toggle_menubar(window, empty_menubar, menubar):
+def toggle_menubar(window, menubar):
     if window.cget("menu") == str(menubar):
-        window.configure(menu=empty_menubar)
+        window.configure(menu="")
     else:
         window.configure(menu=menubar)
 
@@ -46,8 +46,37 @@ def set_icon(window, icon_path):
         window.iconbitmap()
     
 def set_theme(note, bg, bg2):
-    note.configure(background=bg)
-    note.tag_configure(SEL, background=bg2)
+    if note.cget("state") == "disabled":
+        note.configure(background=bg, foreground="#000", insertbackground=bg)
+        note.tag_configure(SEL, background=bg)
+    else:
+        note.configure(background=bg, foreground="#000", insertbackground="#000")
+        note.tag_configure(SEL, background=bg2)
+
+def set_custom_color(note):
+    try:
+        color = colorchooser.askcolor()
+        r = list(color[1])[1]+list(color[1])[2]
+        g = list(color[1])[3]+list(color[1])[4]
+        b = list(color[1])[5]+list(color[1])[6]
+        luma = 0.2126*eval(f"0x{r}") + 0.7152*eval(f"0x{g}") + 0.0722*eval(f"0x{b}")
+        if int(round(luma, 0)) < 127:
+            fg = "#fff"
+            try:
+                abg = "#" + str(hex(eval(f"0x{r}+0x2e"))).replace("0x", "") + str(hex(eval(f"0x{g}+0x2e"))).replace("0x", "") + str(hex(eval(f"0x{b}+0x2e"))).replace("0x", "")
+            except:
+                abg = "#888"
+        else:
+            fg = "#000"
+            try:
+                abg = "#" + str(hex(eval(f"0x{r}-0x2e"))).replace("0x", "") + str(hex(eval(f"0x{g}-0x2e"))).replace("0x", "") + str(hex(eval(f"0x{b}-0x2e"))).replace("0x", "")
+            except:
+                abg = "#888"
+        note.configure(bg=color[1], fg=fg, insertbackground=fg)
+        note.tag_configure(SEL, background=abg, foreground=fg)
+    except:
+        color = note.cget("background")
+
 
 def pin(window, menubar):
     if menubar.entrycget(2, "label") == "Pin":
@@ -77,16 +106,16 @@ def new_note(title):
         window.protocol("WM_DELETE_WINDOW", lambda: window.withdraw())
         set_icon(window, "icon-default.ico")
 
-        empty_menubar = Menu(window, tearoff=False)
         menubar = Menu(window, tearoff=False)
 
         menuColor = Menu(window, tearoff=False, activeborderwidth=2.5, activebackground="#444", activeforeground="#fff")
-        menuColor.add_command(label="Aa", command=lambda: set_theme(note, list(colors.keys())[0], list(colors.values())[0]), background="#fc5", foreground="#000")
-        menuColor.add_command(label="Aa", command=lambda: set_theme(note, list(colors.keys())[1], list(colors.values())[1]), background="#5cf", foreground="#000")
-        menuColor.add_command(label="Aa", command=lambda: set_theme(note, list(colors.keys())[2], list(colors.values())[2]), background="#d8d", foreground="#000")
-        menuColor.add_command(label="Aa", command=lambda: set_theme(note, list(colors.keys())[3], list(colors.values())[3]), background="#8d8", foreground="#000")
-        menuColor.add_command(label="Aa", command=lambda: set_theme(note, list(colors.keys())[4], list(colors.values())[4]), background="#f84", foreground="#000")
-        menuColor.add_command(label="Aa", command=lambda: set_theme(note, list(colors.keys())[5], list(colors.values())[5]), background="#bbb", foreground="#000")
+        menuColor.add_command(command=lambda: set_theme(note, list(colors.keys())[0], list(colors.values())[0]), background="#fc5", foreground="#000", label="Yellow")
+        menuColor.add_command(command=lambda: set_theme(note, list(colors.keys())[1], list(colors.values())[1]), background="#5cf", foreground="#000", label="Blue")
+        menuColor.add_command(command=lambda: set_theme(note, list(colors.keys())[2], list(colors.values())[2]), background="#d8d", foreground="#000", label="Pink")
+        menuColor.add_command(command=lambda: set_theme(note, list(colors.keys())[3], list(colors.values())[3]), background="#8d8", foreground="#000", label="Green")
+        menuColor.add_command(command=lambda: set_theme(note, list(colors.keys())[4], list(colors.values())[4]), background="#f84", foreground="#000", label="Orange")
+        menuColor.add_command(command=lambda: set_theme(note, list(colors.keys())[5], list(colors.values())[5]), background="#bbb", foreground="#000", label="Grey")
+        menuColor.add_command(label="Custom", command=lambda: set_custom_color(note), background="#804000", foreground="#fff")
 
         menuIcon = Menu(window, tearoff=False, activeborderwidth=2.5)
         menuIcon.add_command(label="Default", command=lambda: set_icon(window, "icon-default.ico"), activebackground="#06b", activeforeground="#fff")
@@ -109,8 +138,8 @@ def new_note(title):
         menuIconMore.add_command(label="Brown", background="#840", foreground="#fff", command=lambda: set_icon(window, "icon8.ico"))
         menuIconMore.add_command(label="Grey", background="#888", foreground="#fff", command=lambda: set_icon(window, "icon9.ico"))
 
+        menubar.add_cascade(label="Color", menu=menuColor)
         menubar.add_cascade(label="Icon", menu=menuIcon)
-        menubar.add_cascade(label="Background", menu=menuColor)
         menubar.add_command(label="Pin", command=lambda: pin(window, menubar))
         menubar.add_command(label="Save", command=lambda: open(filedialog.asksaveasfilename(defaultextension='.btxt', filetypes=[('All Files', '*.*')]), 'w').write(note.get(1.0, END)))
 
@@ -133,7 +162,7 @@ def new_note(title):
         notes[title] = note
         refresh()
 
-        window.bind("<Double-Button-1>", lambda i: toggle_menubar(window, empty_menubar, menubar))
+        window.bind("<Double-Button-1>", lambda i: toggle_menubar(window, menubar))
         window.bind("<Button-3>", lambda event: b3_menu_note(event, menuB3_note))
         window.mainloop()
     else:
@@ -227,16 +256,15 @@ def create_clipboard():
     window.protocol("WM_DELETE_WINDOW", lambda: window.withdraw())
     set_icon(window, "icon-default.ico")
 
-    empty_menubar = Menu(window, tearoff=False)
     menubar = Menu(window, tearoff=False)
 
     menuColor = Menu(window, tearoff=False, activeborderwidth=2.5, activebackground="#444", activeforeground="#fff")
-    menuColor.add_command(label="Aa", command=lambda: set_theme(note, list(colors.keys())[0], list(colors.values())[0]), background="#fc5", foreground="#000")
-    menuColor.add_command(label="Aa", command=lambda: set_theme(note, list(colors.keys())[1], list(colors.values())[1]), background="#5cf", foreground="#000")
-    menuColor.add_command(label="Aa", command=lambda: set_theme(note, list(colors.keys())[2], list(colors.values())[2]), background="#d8d", foreground="#000")
-    menuColor.add_command(label="Aa", command=lambda: set_theme(note, list(colors.keys())[3], list(colors.values())[3]), background="#8d8", foreground="#000")
-    menuColor.add_command(label="Aa", command=lambda: set_theme(note, list(colors.keys())[4], list(colors.values())[4]), background="#f84", foreground="#000")
-    menuColor.add_command(label="Aa", command=lambda: set_theme(note, list(colors.keys())[5], list(colors.values())[5]), background="#bbb", foreground="#000")
+    menuColor.add_command(command=lambda: set_theme(note, list(colors.keys())[0], list(colors.values())[0]), background="#fc5", foreground="#000", label="Yellow")
+    menuColor.add_command(command=lambda: set_theme(note, list(colors.keys())[1], list(colors.values())[1]), background="#5cf", foreground="#000", label="Blue")
+    menuColor.add_command(command=lambda: set_theme(note, list(colors.keys())[2], list(colors.values())[2]), background="#d8d", foreground="#000", label="Pink")
+    menuColor.add_command(command=lambda: set_theme(note, list(colors.keys())[3], list(colors.values())[3]), background="#8d8", foreground="#000", label="Green")
+    menuColor.add_command(command=lambda: set_theme(note, list(colors.keys())[4], list(colors.values())[4]), background="#f84", foreground="#000", label="Orange")
+    menuColor.add_command(command=lambda: set_theme(note, list(colors.keys())[5], list(colors.values())[5]), background="#bbb", foreground="#000", label="Grey")
 
     menuIcon = Menu(window, tearoff=False, activeborderwidth=2.5)
     menuIcon.add_command(label="Default", command=lambda: set_icon(window, "icon-default.ico"), activebackground="#06b", activeforeground="#fff")
@@ -259,19 +287,20 @@ def create_clipboard():
     menuIconMore.add_command(label="Brown", background="#840", foreground="#fff", command=lambda: set_icon(window, "icon8.ico"))
     menuIconMore.add_command(label="Grey", background="#888", foreground="#fff", command=lambda: set_icon(window, "icon9.ico"))
 
+    menubar.add_cascade(label="Color", menu=menuColor)
     menubar.add_cascade(label="Icon", menu=menuIcon)
-    menubar.add_cascade(label="Background", menu=menuColor)
     menubar.add_command(label="Pin", command=lambda: pin(window, menubar))
     menubar.add_command(label="Save", command=lambda: open(filedialog.asksaveasfilename(defaultextension='.btxt', filetypes=[('All Files', '*.*')]), 'w').write(note.get(1.0, END)))
 
     note = Text(window, bd=8, relief=FLAT, undo=True, wrap=WORD, background=random.choice(["#fc5", "#5cf", "#d8d", "#8d8", "#f84", "#bbb"]), foreground="#000", font=("", 11))
     note.grid(row=0, column=0, sticky="nsew")
-    note.tag_configure(SEL, background=colors[note["bg"]], foreground="#000")
+    note.configure(insertbackground=note["bg"])
+    note.tag_configure(SEL, background=note["bg"], foreground="#000")
 
     notes["Clipboard"] = note
     refresh()
 
-    window.bind("<Double-Button-1>", lambda i: toggle_menubar(window, empty_menubar, menubar))
+    window.bind("<Double-Button-1>", lambda i: toggle_menubar(window, menubar))
     window.mainloop()
 
 def refresh_clipboard():
