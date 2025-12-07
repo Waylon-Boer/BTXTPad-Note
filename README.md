@@ -2,4 +2,4 @@
 
 *Copyright (c) 2022 and later: Waylon Boer*
 
-A lightweight notetaking app
+BTXTPad Note is a lightweight notetaking app
