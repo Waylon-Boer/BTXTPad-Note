@@ -1,2 +1,5 @@
 # BTXTPad-Note
-A lightweight note app
+
+*Copyright (c) 2022 and later: Waylon Boer*
+
+A lightweight notetaking app
