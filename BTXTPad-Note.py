@@ -2,20 +2,30 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox, filedialog, font
 import datetime, os, json
+import ctypes as ct
 
 class BTXTPadNoteApp:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("BTXTPad Note")
-        self.root.rowconfigure(1, weight=1)
+        self.root.rowconfigure(0, weight=1)
         self.root.columnconfigure(0, weight=0, minsize=325)
         self.root.columnconfigure(1, weight=1)
         self.root.resizable(width=False, height=True)
         self.root["bg"] = "#FFD980"
 
+        self.style = ttk.Style(self.root)
+        self.style.theme_use("clam")
+        self.style.configure("TButton", relief=tk.FLAT, font=(font.nametofont("TkDefaultFont").actual()["family"], 10))
+        self.style.configure("TNotebook", background="#FFFFFF")
+        self.style.configure("TNotebook.Tab", background="#F0F0F0", foreground="#000000", border=0, relief=tk.FLAT)
+        self.style.map("TNotebook.Tab", background=[("selected", "#0078D4")], foreground=[("selected", "#FFFFFF")])
+
+        self.dark_mode = False
         self.pages = {}
         self.current_page = ""
-        self.page_colors = {"#FFE099": "#D1B26B", "#99E0FF": "#6BB2D1", "#FF99FF": "#D16BD1", "#99FF99": "#6BD16B", "#FFBE99": "#D1906B", "#CCCCCC": "#9E9E9E"}
+        self.page_colors = {"#FFE099": "#D1B26B", "#99E0FF": "#6BB2D1", "#FF99FF": "#D16BD1", "#99FF99": "#6BD16B", "#FFBE99": "#D1906B", "#D1D1D1": "#A3A3A3"}
+        self.dark_colors = {"#2E291C": "#5C574A", "#1C292E": "#4A575C", "#2E1C2E": "#5C4A5C", "#1C2E1C": "#4A5C4A", "#2E221C": "#5C504A", "#202020": "#4E4E4E"}
         self.note_colors = {"#FFCC55": "#D19E27", "#55CCFF": "#279ED1", "#DD88DD": "#AF5AAF", "#88DD88": "#5AAF5A", "#FF8844": "#D16526", "#BBBBBB": "#8D8D8D"}
 
         try:
@@ -24,45 +34,48 @@ class BTXTPadNoteApp:
             pass
 
         self.root.geometry("325x500")
+
+        self.left_frame = tk.Frame(self.root)
+        self.left_frame.grid(row=0, column=0, sticky="nsew")
+        self.left_frame.rowconfigure(1, weight=1)
+        self.left_frame.columnconfigure(0, weight=0, minsize=325)
         
-        self.toolbar = tk.Frame(self.root, border=10)
+        self.toolbar = tk.Frame(self.left_frame)
         self.toolbar.grid(row=0, column=0, sticky="nsew")
         for i in range(0, 3):
             self.toolbar.columnconfigure(i, weight=1)
 
-        self.button_new_page = ttk.Button(self.toolbar, text="New Page", command=lambda: self.new_page("New Page", 0, ""))
-        self.button_new_page.grid(row=0, column=0, sticky="nsew")
-        self.button_new_note = ttk.Button(self.toolbar, text="New Note", command=self.new_note)
-        self.button_new_note.grid(row=0, column=1, sticky="nsew")
-        self.button_open = ttk.Button(self.toolbar, text="Open", command=self.open_file)
-        self.button_open.grid(row=0, column=2, sticky="nsew")
+        self.button_new = ttk.Menubutton(self.toolbar, text="+ New", style="TButton")
+        self.button_new.grid(row=0, column=0, sticky="nsew")
+        self.menu_new = tk.Menu(self.button_new, tearoff=False, activeborderwidth=2.5)
+        self.menu_new.add_command(label="New Page", command=lambda: self.new_page("New Page", 0, ""))
+        self.menu_new.add_command(label="New Note", command=self.new_note)
+        self.menu_new.add_command(label="New Window", command=run_program)
+        
+        self.button_new.configure(menu=self.menu_new)
+        self.button_import = ttk.Button(self.toolbar, text="Import", command=self.import_file)
+        self.button_import.grid(row=0, column=1, sticky="nsew")
+        
+        self.button_export = ttk.Button(self.toolbar, text="Export", command=self.export_file)
+        self.button_export.grid(row=0, column=2, sticky="nsew")
 
-        self.main = tk.Frame(self.root)
-        self.main.grid(row=1, column=0, sticky="nsew")
-        self.main.rowconfigure(0, weight=1)
-        self.main.columnconfigure(0, weight=1)
-
-        self.listbox = tk.Listbox(self.main, border=10, relief="flat", highlightthickness=0, font=("Segoe UI", 11))
-        self.listbox.grid(row=0, column=0, sticky="nsew")
-        self.scrollbar = tk.Scrollbar(self.main, command=self.listbox.yview)
-        self.scrollbar.grid(row=0, column=1, sticky="nsew")
-        self.listbox.configure(yscrollcommand=self.scrollbar.set)
+        self.listbox = tk.Listbox(self.left_frame, border=10, relief="flat", highlightthickness=0, font=("Segoe UI", 11))
+        self.listbox.grid(row=1, column=0, sticky="nsew")
         self.listbox.bind("<Double-Button-1>", lambda event: self.open_page())
         self.listbox.bind("<Return>", lambda event: self.open_page())
 
-        self.menuListbox = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5, activebackground="#e0e0e0", activeforeground="#000000")
-        self.menuListbox.add_command(label="Open", command=self.open_file, accelerator="Ctrl+O")
-        self.menuListbox.add_command(label="Save", command=self.save_file, accelerator="Ctrl+S")
-        self.menuListbox.add_command(label="Save All", command=self.save_all, accelerator="Ctrl+Shift+S")
-        self.menuListbox.add_separator()
-        self.menuListbox.add_command(label="Import", command=self.import_file, accelerator="Ctrl+R")
-        self.menuListbox.add_command(label="Export", command=self.export_file, accelerator="Ctrl+E")
-        self.menuListbox.add_separator()
-        self.menuListbox.add_command(label="Help", command=self.help_window, accelerator="F1")
+        self.menuListbox = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
+        self.menuListbox.add_command(label="Switch Theme", command=self.switch_theme)
+        self.menuListbox.add_command(label="Help", command=self.help_window)
         self.listbox.bind("<Button-3>", lambda event: self.menuListbox.tk_popup(event.x_root, event.y_root))
 
-        self.framePageToolbar = tk.Frame(self.root)
-        self.framePageToolbar.grid(row=0, column=1, sticky="nsew", padx=10, pady=(10, 3))
+        self.right_frame = tk.Frame(self.root)
+        self.right_frame.grid(row=0, column=1, sticky="nsew")
+        self.right_frame.rowconfigure(1, weight=1)
+        self.right_frame.columnconfigure(0, weight=1)
+
+        self.framePageToolbar = tk.Frame(self.right_frame)
+        self.framePageToolbar.grid(row=0, column=0, sticky="nsew", padx=10, pady=(10, 3))
         self.framePageToolbar.columnconfigure(0, weight=1)
 
         self.page_title_bar = tk.Entry(self.framePageToolbar, relief="flat", font=(font.nametofont("TkDefaultFont").actual()["family"], 11, "bold"))
@@ -80,15 +93,15 @@ class BTXTPadNoteApp:
         self.buttonPageColor.grid(row=0, column=1, sticky="nsew")
         self.menuPageColor = tk.Menu(self.buttonPageColor, tearoff=False, activeborderwidth=2.5, activebackground="#444444", activeforeground="#FFFFFF")
 
-        self.menuPageColor.add_command(command=lambda: self.set_page_color(list(self.page_colors.keys())[0], list(self.page_colors.values())[0]), background=list(self.page_colors.keys())[0], foreground="#000000", label="Yellow")
-        self.menuPageColor.add_command(command=lambda: self.set_page_color(list(self.page_colors.keys())[1], list(self.page_colors.values())[1]), background=list(self.page_colors.keys())[1], foreground="#000000", label="Blue")
-        self.menuPageColor.add_command(command=lambda: self.set_page_color(list(self.page_colors.keys())[2], list(self.page_colors.values())[2]), background=list(self.page_colors.keys())[2], foreground="#000000", label="Pink")
-        self.menuPageColor.add_command(command=lambda: self.set_page_color(list(self.page_colors.keys())[3], list(self.page_colors.values())[3]), background=list(self.page_colors.keys())[3], foreground="#000000", label="Green")
-        self.menuPageColor.add_command(command=lambda: self.set_page_color(list(self.page_colors.keys())[4], list(self.page_colors.values())[4]), background=list(self.page_colors.keys())[4], foreground="#000000", label="Orange")
-        self.menuPageColor.add_command(command=lambda: self.set_page_color(list(self.page_colors.keys())[5], list(self.page_colors.values())[5]), background=list(self.page_colors.keys())[5], foreground="#000000", label="Grey")
+        self.menuPageColor.add_command(command=lambda: self.set_page_color(list(self.page_colors.keys())[0], list(self.page_colors.values())[0], "#000000"), background=list(self.page_colors.keys())[0], foreground="#000000", label="Aa")
+        self.menuPageColor.add_command(command=lambda: self.set_page_color(list(self.page_colors.keys())[1], list(self.page_colors.values())[1], "#000000"), background=list(self.page_colors.keys())[1], foreground="#000000", label="Aa")
+        self.menuPageColor.add_command(command=lambda: self.set_page_color(list(self.page_colors.keys())[2], list(self.page_colors.values())[2], "#000000"), background=list(self.page_colors.keys())[2], foreground="#000000", label="Aa")
+        self.menuPageColor.add_command(command=lambda: self.set_page_color(list(self.page_colors.keys())[3], list(self.page_colors.values())[3], "#000000"), background=list(self.page_colors.keys())[3], foreground="#000000", label="Aa")
+        self.menuPageColor.add_command(command=lambda: self.set_page_color(list(self.page_colors.keys())[4], list(self.page_colors.values())[4], "#000000"), background=list(self.page_colors.keys())[4], foreground="#000000", label="Aa")
+        self.menuPageColor.add_command(command=lambda: self.set_page_color(list(self.page_colors.keys())[5], list(self.page_colors.values())[5], "#000000"), background=list(self.page_colors.keys())[5], foreground="#000000", label="Aa")
         self.buttonPageColor.configure(menu=self.menuPageColor)
 
-        self.menuPage = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5, activebackground="#e0e0e0", activeforeground="#000000")
+        self.menuPage = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
         self.menuPage.add_command(label="Undo", command=lambda: self.pages[self.current_page].event_generate("<<Undo>>"))
         self.menuPage.add_command(label="Redo", command=lambda: self.pages[self.current_page].event_generate("<<Redo>>"))
         self.menuPage.add_separator()
@@ -99,33 +112,36 @@ class BTXTPadNoteApp:
         self.menuPage.add_separator()
         self.menuPage.add_command(label="Delete", command=lambda: self.pages[self.current_page].event_generate("<<Clear>>"))
 
-        self.menuInsert = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5, activebackground="#e0e0e0", activeforeground="#000000")
+        self.menuInsert = tk.Menu(self.root, tearoff=False, activeborderwidth=2.5)
         self.menuInsert.add_command(label="Date & Time", command=lambda: self.pages[self.current_page].insert(tk.INSERT, datetime.datetime.now()))
         self.menuInsert.add_separator()
         self.menuInsert.add_command(label="Bulleted List", command=lambda: self.pages[self.current_page].insert(tk.INSERT, "\n• "))
         self.menuInsert.add_command(label="Numbered List", command=lambda: self.pages[self.current_page].insert(tk.INSERT, "\n1.\t"))
         self.menuPage.add_cascade(label="Insert", menu=self.menuInsert)
         self.menuPage.add_separator()
-        self.menuPage.add_cascade(label="Remove", command=self.remove_page)
+        self.menuPage.add_command(label="Remove", command=self.remove_page)
 
+        self.switch_theme()
+        self.switch_theme()
+
+        self.root.bind("<Alt-n>", lambda event: self.menu_new.tk_popup(self.button_new.winfo_rootx(), self.button_new.winfo_rooty()+25))
+        self.root.bind("<Alt-N>", lambda event: self.menu_new.tk_popup(self.button_new.winfo_rootx(), self.button_new.winfo_rooty()+25))
         self.root.bind("<Control-e>", lambda event: self.export_file())
         self.root.bind("<Control-E>", lambda event: self.export_file())
         self.root.bind("<Control-n>", lambda event: self.new_page("New Page", 0, ""))
         self.root.bind("<Control-N>", lambda event: self.new_page("New Page", 0, ""))
-        self.root.bind("<Control-o>", lambda event: self.open_file())
-        self.root.bind("<Control-O>", lambda event: self.open_file())
-        self.root.bind("<Control-s>", lambda event: self.save_file())
-        self.root.bind("<Control-S>", lambda event: self.save_file())
-        self.root.bind("<Control-Shift-s>", lambda event: self.save_all())
-        self.root.bind("<Control-Shift-S>", lambda event: self.save_all())
+        self.root.bind("<Control-o>", lambda event: self.import_file())
+        self.root.bind("<Control-O>", lambda event: self.import_file())
+        self.root.bind("<Control-s>", lambda event: self.export_file())
+        self.root.bind("<Control-S>", lambda event: self.export_file())
         self.root.bind("<Control-r>", lambda event: self.import_file())
         self.root.bind("<Control-R>", lambda event: self.import_file())
         self.root.bind("<Control-t>", lambda event: self.new_note())
         self.root.bind("<Control-T>", lambda event: self.new_note())
         self.root.bind("<F1>", lambda event: self.help_window())
         self.root.bind("<F2>", lambda event: self.go_to_title_bar())
-        self.root.bind("<F5>", lambda event: self.open_file())
-        self.root.bind("<F12>", lambda event: self.save_file())
+        self.root.bind("<F5>", lambda event: self.import_file())
+        self.root.bind("<F12>", lambda event: self.export_file())
 
     def new_page(self, title, pageColor, text):
         if title in list(self.pages.keys()):
@@ -143,11 +159,10 @@ class BTXTPadNoteApp:
         self.page_title_bar.bind("<KeyRelease>", lambda event: self.rename_page())
 
         self.root["bg"] = list(self.page_colors.keys())[0]
-        self.page_title_bar.configure(background=list(self.page_colors.keys())[0], foreground="#000000", insertbackground="#000000")
 
-        page = tk.Text(self.root, relief="flat", undo=True, wrap="word", font=(font.nametofont("TkDefaultFont").actual()["family"], 11))
+        page = tk.Text(self.right_frame, relief="flat", undo=True, wrap="word", font=(font.nametofont("TkDefaultFont").actual()["family"], 11))
         page.insert(1.0, text)
-        page.grid(row=1, column=1, sticky="nsew", padx=10, pady=(3, 10))
+        page.grid(row=1, column=0, sticky="nsew", padx=10, pady=(3, 10))
         page.bind("<Control-w>", lambda event: self.remove_page())
         page.bind("<Control-W>", lambda event: self.remove_page())
         page.bind("<Button-3>", lambda event: self.menuPage.tk_popup(event.x_root, event.y_root))
@@ -155,7 +170,10 @@ class BTXTPadNoteApp:
         page.focus_set()
 
         self.pages[title] = page
-        self.set_page_color(list(self.page_colors.keys())[pageColor], list(self.page_colors.values())[pageColor])
+        if self.dark_mode:
+            self.set_page_color(list(self.dark_colors.keys())[pageColor], list(self.dark_colors.values())[pageColor], "#FFFFFF")
+        else:
+            self.set_page_color(list(self.page_colors.keys())[pageColor], list(self.page_colors.values())[pageColor], "#000000")
         self.refresh()
 
     def open_page(self):
@@ -167,8 +185,15 @@ class BTXTPadNoteApp:
             self.page_title_bar.delete(0, "end")
             self.page_title_bar.insert(0, self.current_page)
             page = self.pages[self.current_page]
-            self.set_page_color(page.cget("bg"), self.page_colors[page.cget("bg")])
-            page.grid(row=1, column=1, sticky="nsew", padx=10, pady=(3, 10))
+            if self.dark_mode:
+                fg = "#FFFFFF"
+            else:
+                fg = "#000000"
+            try:
+                self.set_page_color(page.cget("bg"), self.page_colors[page.cget("bg")], fg)
+            except:
+                self.set_page_color(page.cget("bg"), self.dark_colors[page.cget("bg")], fg)
+            page.grid(row=1, column=0, sticky="nsew", padx=10, pady=(3, 10))
             self.pages.pop(self.current_page)
             self.pages[self.current_page] = page
             self.refresh()
@@ -234,6 +259,7 @@ class BTXTPadNoteApp:
             if self.root.resizable()[0] == False:
                 self.root.resizable(width=True, height=True)
                 self.root.minsize(width=650, height=500)
+        self.restore_dark_mode()
 
     def set_note_color(self, window, note_title_bar, buttonNoteColor, note, bg, bg2):
         window["bg"] = bg
@@ -242,13 +268,17 @@ class BTXTPadNoteApp:
         note.configure(background=bg, foreground="#000000", insertbackground="#000000")
         note.tag_configure(tk.SEL, background=bg2, foreground="#000000")
 
-    def set_page_color(self, bg, bg2):
-        self.root["bg"] = bg
-        self.framePageToolbar["bg"] = bg
-        self.page_title_bar.configure(background=bg, foreground="#000000", insertbackground="#000000", selectbackground=bg2, selectforeground="#000000")
-        self.buttonPageColor.configure(background=bg, foreground="#000000", activebackground=bg2, activeforeground="#000000")
-        self.pages[self.current_page].configure(background=bg, foreground="#000000", insertbackground="#000000")
-        self.pages[self.current_page].tag_configure(tk.SEL, background=bg2, foreground="#000000")
+    def set_page_color(self, bg, bg2, fg):
+        self.right_frame.configure(bg=bg)
+        self.framePageToolbar.configure(bg=bg)
+        self.page_title_bar.configure(background=bg, foreground=fg, insertbackground=fg, selectbackground=bg2, selectforeground=fg)
+        self.buttonPageColor.configure(background=bg, foreground=fg, activebackground=bg2, activeforeground=fg)
+        self.pages[self.current_page].configure(background=bg, foreground=fg, insertbackground=fg)
+        self.pages[self.current_page].tag_configure(tk.SEL, background=bg2, foreground=fg)
+
+    def set_page_color_for(self, page, bg, bg2, fg):
+        self.pages[page].configure(background=bg, foreground=fg, insertbackground=fg)
+        self.pages[page].tag_configure(tk.SEL, background=bg2, foreground=fg)
 
     def continue_list(self, text_widget):  
         if text_widget.index("insert") == text_widget.index(f"{text_widget.index('insert').split('.')[0]}.end"):
@@ -278,69 +308,122 @@ class BTXTPadNoteApp:
         if self.pages:
             self.page_title_bar.focus_set()
 
-    def open_file(self):
-        try:
-            filepath = filedialog.askopenfilename(title="Open", filetypes=[("BTXTPad Documents", "*.btxt*"), ('Plain Text Files', "*.txt*"), ("All Files", "*.*")])
-            if filepath:
-                with open(filepath, "r", encoding="utf8") as file:
-                    data = file.read()
-                self.new_page(os.path.split(filepath)[1], 0, data)
-        except:
-            pass
-
-    def save_file(self):
-        if self.current_page:
-            try:
-                filepath = filedialog.asksaveasfilename(title="Save As", defaultextension=".btxt", filetypes=[("All Files", "*.*")])
-                if filepath:
-                    data = self.pages[self.current_page].get(1.0, "end-1c")
-                    with open(filepath, "w", encoding="utf8") as file:
-                        file.write(f"{self.current_page}:\n{data}")
-            except:
-                pass
-
-    def save_all(self):
-        filepath = filedialog.asksaveasfilename(title="Save All", defaultextension=".btxt", filetypes=[("All Files", "*.*")])
-        if filepath:
-            try:
-                with open(filepath, "w", encoding="utf8") as f:
-                    for title, note in reversed(list(self.pages.items())):
-                        data = note.get("1.0", "end-1c")
-                        f.write(f"{title}:\n{data}\n\n")
-            except:
-                pass
-
     def import_file(self):
-        filepath = filedialog.askopenfilename(title="Import", defaultextension=".json", filetypes=[("JSON Files", "*.json")])
+        filepath = filedialog.askopenfilename(title="Import", defaultextension=".json", filetypes=[("All Supported File Types", "*.btxt *.txt *.json"), ("BTXTPad Documents", "*.btxt*"), ('Plain Text Files', "*.txt"), ("JSON Files", "*.json")])
         if not filepath:
             return
-
-        try:
+        if os.path.splitext(filepath)[1] == ".json":
+            try:
+                with open(filepath, "r", encoding="utf8") as file:
+                    data = json.load(file)
+                for i in data:
+                    self.new_page(i.get("title"), i.get("pageColor"), i.get("text"))
+            except:
+                pass
+        else:
             with open(filepath, "r", encoding="utf8") as file:
-                data = json.load(file)
-            for i in data:
-                self.new_page(i.get("title"), i.get("pageColor"), i.get("text"))
-        except:
-            pass
+                data = file.read()
+            self.new_page(os.path.split(filepath)[1], 0, data)
+            
 
-    def export_file(self):
+    def export_file(self):         
         if not self.pages:
             return
 
-        filepath = filedialog.asksaveasfilename(title="Export", defaultextension=".json", filetypes=[("JSON Files", "*.json")])
-        if not filepath:
+        try:
+            ch = messagebox.askyesnocancel("BTXTPad Note", "Do you want to export all pages?")
+            if ch == True:
+                filepath = filedialog.asksaveasfilename(title="Export", defaultextension=".json", filetypes=[("JSON Files", "*.json")])
+                if not filepath:
+                    return
+
+                try:
+                    data = []
+                    for title, note in self.pages.items():
+                        text = note.get("1.0", "end-1c")
+                        if self.dark_mode:
+                            page_color = list(self.dark_colors.keys()).index(note.cget("bg"))
+                        else:
+                            page_color = list(self.page_colors.keys()).index(note.cget("bg"))
+                        data.append({"title": title, "pageColor": page_color, "text": text})
+                    with open(filepath, "w", encoding="utf8") as file:
+                        json.dump(data, file, ensure_ascii=False, indent=4)
+                except:
+                    pass
+            elif ch == False:
+                if self.current_page:
+                    try:
+                        filepath = filedialog.asksaveasfilename(title="Save As", defaultextension=".btxt", filetypes=[("BTXTPad Note Files", "*.btxt"), ("All Files", "*.*")])
+                        if filepath:
+                            data = self.pages[self.current_page].get(1.0, "end-1c")
+                            with open(filepath, "w", encoding="utf8") as file:
+                                file.write(f"{self.current_page}:\n{data}")
+                    except:
+                        pass
+            else:
+                return
+        except:
             return
 
+    def switch_theme(self):
+        if self.dark_mode == False:
+            var = 2
+            color_list = self.dark_colors
+            fg = "#FFFFFF"
+            self.toolbar.configure(bg="#1C1C1C")
+            self.listbox.configure(bg="#000000", fg=fg)
+            self.style.configure("TButton", background="#1C1C1C", foreground="#FFFFFF")
+            self.style.map("TButton", background=[("active", "#2B2B2B")], foreground=[("active", "#FFFFFF")])
+            self.dark_mode = True
+            for menu in [self.menu_new, self.menuListbox, self.menuPage, self.menuInsert]:
+                menu.configure(background="#1C1C1C", foreground="#FFFFFF", activebackground="#3A3A3A", activeforeground="#FFFFFF")
+        else:
+            var = 0
+            color_list = self.page_colors
+            fg = "#000000"
+            self.toolbar.configure(bg="#F0F0F0")
+            self.listbox.configure(bg="#FFFFFF", fg=fg)
+            self.style.configure("TButton", background="#F0F0F0", foreground="#000000")
+            self.style.map("TButton", background=[("active", "#E1E1E1")], foreground=[("active", "#000000")])
+            self.dark_mode = False
+            for menu in [self.menu_new, self.menuListbox, self.menuPage, self.menuInsert]:
+                menu.configure(background="#F0F0F0", foreground="#000000", activebackground="#D2D2D2", activeforeground="#000000")
+
+        keys_light = list(self.page_colors.keys())
+        keys_dark = list(self.dark_colors.keys())
+
+        if self.current_page:
+            bg = self.pages[self.current_page].cget("bg")
+            idx = keys_light.index(bg) if bg in keys_light else keys_dark.index(bg)
+            new_bg = keys_dark[idx] if self.dark_mode else keys_light[idx]
+            new_bg2 = list(self.dark_colors.values())[idx] if self.dark_mode else list(self.page_colors.values())[idx]
+            self.set_page_color(new_bg, new_bg2, fg)
+
+        for page in self.pages:
+            bg = self.pages[page].cget("bg")
+            idx = keys_light.index(bg) if bg in keys_light else keys_dark.index(bg)
+            new_bg = keys_dark[idx] if self.dark_mode else keys_light[idx]
+            new_bg2 = list(self.dark_colors.values())[idx] if self.dark_mode else list(self.page_colors.values())[idx]
+            self.set_page_color_for(page, new_bg, new_bg2, fg)
+
+        self.menuPageColor.entryconfig(0, command=lambda: self.set_page_color(list(color_list.keys())[0], list(color_list.values())[0], fg), background=list(color_list.keys())[0], foreground=fg)
+        self.menuPageColor.entryconfig(1, command=lambda: self.set_page_color(list(color_list.keys())[1], list(color_list.values())[1], fg), background=list(color_list.keys())[1], foreground=fg)
+        self.menuPageColor.entryconfig(2, command=lambda: self.set_page_color(list(color_list.keys())[2], list(color_list.values())[2], fg), background=list(color_list.keys())[2], foreground=fg)
+        self.menuPageColor.entryconfig(3, command=lambda: self.set_page_color(list(color_list.keys())[3], list(color_list.values())[3], fg), background=list(color_list.keys())[3], foreground=fg)
+        self.menuPageColor.entryconfig(4, command=lambda: self.set_page_color(list(color_list.keys())[4], list(color_list.values())[4], fg), background=list(color_list.keys())[4], foreground=fg)
+        self.menuPageColor.entryconfig(5, command=lambda: self.set_page_color(list(color_list.keys())[5], list(color_list.values())[5], fg), background=list(color_list.keys())[5], foreground=fg)
+        
         try:
-            data = []
-            for title, note in self.pages.items():
-                text = note.get("1.0", "end-1c")
-                page_color = list(self.page_colors.keys()).index(note.cget("bg"))
-                data.append({"title": title, "pageColor": page_color, "text": text})
-            with open(filepath, "w", encoding="utf8") as file:
-                json.dump(data, file, ensure_ascii=False, indent=4)
+            ct.windll.dwmapi.DwmSetWindowAttribute(ct.windll.user32.GetParent(self.root.winfo_id()), 20, ct.byref(ct.c_int(var)), ct.sizeof(ct.c_int(var)))
         except:
-            pass
+            return
+        
+    def restore_dark_mode(self):
+        try:
+            if self.toolbar.cget("bg") == "#1C1C1C":
+                ct.windll.dwmapi.DwmSetWindowAttribute(ct.windll.user32.GetParent(self.root.winfo_id()), 20, ct.byref(ct.c_int(2)), ct.sizeof(ct.c_int(2)))
+        except:
+            return
 
     def new_note(self):
         def remove_note():
@@ -404,12 +487,12 @@ class BTXTPadNoteApp:
         menuNote.add_command(label="Add As Page", command=lambda: self.new_page(note_title_bar.get(), list(self.note_colors.keys()).index(note.cget("bg")), note.get(1.0, "end-1c")))
 
         menuNoteColor = tk.Menu(buttonNoteColor, tearoff=False, activeborderwidth=2.5, activebackground="#444444", activeforeground="#FFFFFF")
-        menuNoteColor.add_command(command=lambda: self.set_note_color(window, note_title_bar, buttonNoteColor, note, list(self.note_colors.keys())[0], list(self.note_colors.values())[0]), background="#fc5", foreground="#000000", label="Yellow")
-        menuNoteColor.add_command(command=lambda: self.set_note_color(window, note_title_bar, buttonNoteColor, note, list(self.note_colors.keys())[1], list(self.note_colors.values())[1]), background="#5cf", foreground="#000000", label="Blue")
-        menuNoteColor.add_command(command=lambda: self.set_note_color(window, note_title_bar, buttonNoteColor, note, list(self.note_colors.keys())[2], list(self.note_colors.values())[2]), background="#d8d", foreground="#000000", label="Pink")
-        menuNoteColor.add_command(command=lambda: self.set_note_color(window, note_title_bar, buttonNoteColor, note, list(self.note_colors.keys())[3], list(self.note_colors.values())[3]), background="#8d8", foreground="#000000", label="Green")
-        menuNoteColor.add_command(command=lambda: self.set_note_color(window, note_title_bar, buttonNoteColor, note, list(self.note_colors.keys())[4], list(self.note_colors.values())[4]), background="#f84", foreground="#000000", label="Orange")
-        menuNoteColor.add_command(command=lambda: self.set_note_color(window, note_title_bar, buttonNoteColor, note, list(self.note_colors.keys())[5], list(self.note_colors.values())[5]), background="#bbb", foreground="#000000", label="Grey")
+        menuNoteColor.add_command(command=lambda: self.set_note_color(window, note_title_bar, buttonNoteColor, note, list(self.note_colors.keys())[0], list(self.note_colors.values())[0]), background="#fc5", foreground="#000000", label="Aa")
+        menuNoteColor.add_command(command=lambda: self.set_note_color(window, note_title_bar, buttonNoteColor, note, list(self.note_colors.keys())[1], list(self.note_colors.values())[1]), background="#5cf", foreground="#000000", label="Aa")
+        menuNoteColor.add_command(command=lambda: self.set_note_color(window, note_title_bar, buttonNoteColor, note, list(self.note_colors.keys())[2], list(self.note_colors.values())[2]), background="#d8d", foreground="#000000", label="Aa")
+        menuNoteColor.add_command(command=lambda: self.set_note_color(window, note_title_bar, buttonNoteColor, note, list(self.note_colors.keys())[3], list(self.note_colors.values())[3]), background="#8d8", foreground="#000000", label="Aa")
+        menuNoteColor.add_command(command=lambda: self.set_note_color(window, note_title_bar, buttonNoteColor, note, list(self.note_colors.keys())[4], list(self.note_colors.values())[4]), background="#f84", foreground="#000000", label="Aa")
+        menuNoteColor.add_command(command=lambda: self.set_note_color(window, note_title_bar, buttonNoteColor, note, list(self.note_colors.keys())[5], list(self.note_colors.values())[5]), background="#bbb", foreground="#000000", label="Aa")
         buttonNoteColor.configure(menu=menuNoteColor)
 
         note = tk.Text(window, relief="flat", undo=True, wrap="word", font=(font.nametofont("TkDefaultFont").actual()["family"], 11))
