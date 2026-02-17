@@ -5,8 +5,8 @@ import datetime, os, json
 import ctypes as ct
 
 class BTXTPadNoteApp:
-    def __init__(self):
-        self.root = tk.Tk()
+    def __init__(self, root):
+        self.root = root
         self.root.title("BTXTPad Note")
         self.root.rowconfigure(0, weight=1)
         self.root.columnconfigure(0, weight=0, minsize=325)
@@ -14,12 +14,10 @@ class BTXTPadNoteApp:
         self.root.resizable(width=False, height=True)
         self.root["bg"] = "#FFD980"
 
+        self.prefix = id(self.root)
         self.style = ttk.Style(self.root)
         self.style.theme_use("clam")
-        self.style.configure("TButton", relief=tk.FLAT, font=(font.nametofont("TkDefaultFont").actual()["family"], 10))
-        self.style.configure("TNotebook", background="#FFFFFF")
-        self.style.configure("TNotebook.Tab", background="#F0F0F0", foreground="#000000", border=0, relief=tk.FLAT)
-        self.style.map("TNotebook.Tab", background=[("selected", "#0078D4")], foreground=[("selected", "#FFFFFF")])
+        self.style.configure(f"{self.prefix}.TButton", relief=tk.FLAT, font=(font.nametofont("TkDefaultFont").actual()["family"], 10))
 
         self.dark_mode = False
         self.pages = {}
@@ -45,18 +43,18 @@ class BTXTPadNoteApp:
         for i in range(0, 3):
             self.toolbar.columnconfigure(i, weight=1)
 
-        self.button_new = ttk.Menubutton(self.toolbar, text="+ New", style="TButton")
+        self.button_new = ttk.Menubutton(self.toolbar, text="+ New", style=f"{self.prefix}.TButton")
         self.button_new.grid(row=0, column=0, sticky="nsew")
         self.menu_new = tk.Menu(self.button_new, tearoff=False, activeborderwidth=2.5)
         self.menu_new.add_command(label="New Page", command=lambda: self.new_page("New Page", 0, ""))
         self.menu_new.add_command(label="New Note", command=self.new_note)
-        self.menu_new.add_command(label="New Window", command=run_program)
+        self.menu_new.add_command(label="New Window", command=self.open_new_window)
         
         self.button_new.configure(menu=self.menu_new)
-        self.button_import = ttk.Button(self.toolbar, text="Import", command=self.import_file)
+        self.button_import = ttk.Button(self.toolbar, text="Import", command=self.import_file, style=f"{self.prefix}.TButton")
         self.button_import.grid(row=0, column=1, sticky="nsew")
         
-        self.button_export = ttk.Button(self.toolbar, text="Export", command=self.export_file)
+        self.button_export = ttk.Button(self.toolbar, text="Export", command=self.export_file, style=f"{self.prefix}.TButton")
         self.button_export.grid(row=0, column=2, sticky="nsew")
 
         self.listbox = tk.Listbox(self.left_frame, border=10, relief="flat", highlightthickness=0, font=("Segoe UI", 11))
@@ -166,7 +164,7 @@ class BTXTPadNoteApp:
         page.bind("<Control-w>", lambda event: self.remove_page())
         page.bind("<Control-W>", lambda event: self.remove_page())
         page.bind("<Button-3>", lambda event: self.menuPage.tk_popup(event.x_root, event.y_root))
-        page.bind("<Return>", lambda event: self.continue_list(page))
+        page.bind("<Return>", lambda: self.continue_list)
         page.focus_set()
 
         self.pages[title] = page
@@ -280,7 +278,8 @@ class BTXTPadNoteApp:
         self.pages[page].configure(background=bg, foreground=fg, insertbackground=fg)
         self.pages[page].tag_configure(tk.SEL, background=bg2, foreground=fg)
 
-    def continue_list(self, text_widget):  
+    def continue_list(self, event):
+        text_widget = event.widget  
         if text_widget.index("insert") == text_widget.index(f"{text_widget.index('insert').split('.')[0]}.end"):
             start = str(int(str(text_widget.index("insert")).split(".")[0])) + ".0"
             end = str(int(str(text_widget.index("insert")).split(".")[0])) + ".2"
@@ -372,8 +371,8 @@ class BTXTPadNoteApp:
             fg = "#FFFFFF"
             self.toolbar.configure(bg="#1C1C1C")
             self.listbox.configure(bg="#000000", fg=fg)
-            self.style.configure("TButton", background="#1C1C1C", foreground="#FFFFFF")
-            self.style.map("TButton", background=[("active", "#2B2B2B")], foreground=[("active", "#FFFFFF")])
+            self.style.configure(f"{self.prefix}.TButton", background="#1C1C1C", foreground="#FFFFFF")
+            self.style.map(f"{self.prefix}.TButton", background=[("active", "#2B2B2B")], foreground=[("active", "#FFFFFF")])
             self.dark_mode = True
             for menu in [self.menu_new, self.menuListbox, self.menuPage, self.menuInsert]:
                 menu.configure(background="#1C1C1C", foreground="#FFFFFF", activebackground="#3A3A3A", activeforeground="#FFFFFF")
@@ -383,8 +382,8 @@ class BTXTPadNoteApp:
             fg = "#000000"
             self.toolbar.configure(bg="#F0F0F0")
             self.listbox.configure(bg="#FFFFFF", fg=fg)
-            self.style.configure("TButton", background="#F0F0F0", foreground="#000000")
-            self.style.map("TButton", background=[("active", "#E1E1E1")], foreground=[("active", "#000000")])
+            self.style.configure(f"{self.prefix}.TButton", background="#F0F0F0", foreground="#000000")
+            self.style.map(f"{self.prefix}.TButton", background=[("active", "#E1E1E1")], foreground=[("active", "#000000")])
             self.dark_mode = False
             for menu in [self.menu_new, self.menuListbox, self.menuPage, self.menuInsert]:
                 menu.configure(background="#F0F0F0", foreground="#000000", activebackground="#D2D2D2", activeforeground="#000000")
@@ -499,7 +498,7 @@ class BTXTPadNoteApp:
         note.grid(row=1, column=0, sticky="nsew", padx=10, pady=(3, 10))
         note.focus_set()
         note.bind("<Button-3>", lambda event: menuNote.tk_popup(event.x_root, event.y_root))
-        note.bind("<Return>", lambda event: self.continue_list(note))
+        note.bind("<Return>", lambda: self.continue_list)
         self.set_note_color(window, note_title_bar, buttonNoteColor, note, list(self.note_colors.keys())[0], list(self.note_colors.values())[0])
 
         window.bind("<Double-Button-1>", lambda event: (window.overrideredirect(not window.overrideredirect()), window.attributes("-topmost", not window.attributes("-topmost"))))
@@ -520,12 +519,12 @@ class BTXTPadNoteApp:
         help_tabs = ttk.Notebook(window)
         help_tabs.grid(row=0, column=0, sticky="nsew")
 
-        about = tk.Text(help_tabs, relief="flat", border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap="word", background="#e1e1e1")
+        about = tk.Text(help_tabs, relief="flat", border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap="word", background="#E1E1E1")
         about.insert(tk.INSERT, f"BTXTPad Note: A lightweight note app\nCopyright (C) 2022-{str(datetime.datetime.now().year)}: Waylon Boer")
         about.configure(state="disabled")
         help_tabs.add(about, text="About")
 
-        mit_license = tk.Text(help_tabs, relief="flat", border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap="word", background="#e1e1e1")
+        mit_license = tk.Text(help_tabs, relief="flat", border=16, font=(font.nametofont("TkDefaultFont").actual()["family"], 12), wrap="word", background="#E1E1E1")
         mit_license.insert(tk.INSERT, """MIT License
 
 Copyright (c) 2022 Waylon Boer
@@ -550,12 +549,11 @@ SOFTWARE.""")
         mit_license.configure(state="disabled")
         help_tabs.add(mit_license, text="License")
 
-    def run(self):
-        self.root.mainloop()
-
-def run_program():
-    app = BTXTPadNoteApp()
-    app.run()
+    def open_new_window(self):
+        new = tk.Toplevel(self.root)
+        BTXTPadNoteApp(new)
 
 if __name__ == "__main__":
-    run_program()
+    root = tk.Tk()
+    BTXTPadNoteApp(root)
+    root.mainloop()
